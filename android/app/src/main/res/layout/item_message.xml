@@ -19,14 +19,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textSize="11sp"
-            android:textColor="#77736A" />
+            android:textColor="?android:attr/textColorSecondary" />
 
         <TextView
             android:id="@+id/body"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textSize="15sp"
-            android:textColor="#1D1C19"
+            android:textColor="?android:attr/textColorPrimary"
             android:textIsSelectable="true" />
     </LinearLayout>
 </FrameLayout>

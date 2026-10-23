@@ -162,6 +162,21 @@ main.dragging .drop { display: grid; }
   </aside>
 </div>
 
+<div class="modal" id="groupModal" hidden>
+  <div class="modal-card">
+    <h2 style="margin-top:0">Grupos</h2>
+    <p style="color:var(--muted);margin:0 0 10px">Solo las máquinas del <b>mismo grupo</b> se ven entre sí. Entrá a uno que ya exista o creá uno nuevo. Estás en: <b id="groupNow">general</b>.</p>
+    <div id="groupList" style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto;margin-bottom:12px"></div>
+    <div style="display:flex;gap:6px">
+      <input id="newGroup" placeholder="nombre de grupo nuevo…" autocomplete="off" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel)">
+      <button class="btn primary" id="newGroupBtn">Crear / Entrar</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:12px">
+      <button class="btn" id="groupClose">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="pairModal" hidden>
   <div class="modal-card">
     <h2 style="margin-top:0">Vincular celular</h2>
@@ -331,6 +346,7 @@ es.addEventListener('files', (e) => { state.files = JSON.parse(e.data); renderFi
 es.addEventListener('pending', (e) => { state.pending = JSON.parse(e.data); renderPending(); });
 es.addEventListener('exec-config', (e) => { state.exec = JSON.parse(e.data); renderExecToggle(); renderPeers(); });
 es.addEventListener('group', () => { load().catch(() => {}); });
+es.addEventListener('grupos', (e) => { state.grupos = JSON.parse(e.data); if (!$('groupModal').hidden) renderGroupList(); });
 es.addEventListener('message', (e) => {
   const m = JSON.parse(e.data);
   state.messages.push(m);
@@ -424,24 +440,44 @@ $('execToggle').onclick = async () => {
   catch (err) { toast(err.message); }
 };
 
-// ---- grupos (crear / entrar por clave compartida)
-$('groupBtn').onclick = async () => {
-  let actual = { key: '', grupo: '' };
-  try { actual = await (await fetch('/api/group')).json(); } catch {}
-  const etiqueta = actual.key ? `«${actual.key}»` : 'general (sin clave)';
-  const k = prompt(
-    'GRUPOS: solo las máquinas con la MISMA clave se ven entre sí.\n' +
-    'Poné una clave para crear/entrar a un grupo privado, o dejalo vacío para el grupo general.\n\n' +
-    'Grupo actual: ' + etiqueta,
-    actual.key || ''
-  );
-  if (k === null) return;
+// ---- grupos (pool visible + crear/entrar)
+function renderGroupList() {
+  const box = $('groupList'); box.innerHTML = '';
+  const list = state.grupos || [];
+  if (!list.length) { box.append(el('div', 'empty', 'No hay grupos activos.')); return; }
+  for (const g of list) {
+    const row = el('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px';
+    const info = el('div'); info.style.flex = '1';
+    info.append(el('div', null, (g.actual ? '● ' : '') + (g.nombre || 'general')));
+    info.append(el('small', null, `${g.count} en línea`));
+    row.append(info);
+    if (g.actual) {
+      row.append(el('span', 'badge', 'actual'));
+    } else {
+      const btn = el('button', 'btn small', 'Entrar');
+      btn.onclick = () => entrarGrupo(g.nombre === 'general' ? '' : g.nombre);
+      row.append(btn);
+    }
+    box.append(row);
+  }
+}
+async function entrarGrupo(key) {
   try {
-    const r = await postJson('/api/group', { key: k });
-    toast(r.conClave ? `Ahora estás en el grupo «${k}»` : 'Ahora estás en el grupo general');
+    await postJson('/api/group', { key });
+    $('groupModal').hidden = true;
+    toast(key ? `Entraste al grupo «${key}»` : 'Entraste al grupo general');
     load().catch(() => {});
   } catch (err) { toast(err.message); }
+}
+$('groupBtn').onclick = async () => {
+  try { const g = await (await fetch('/api/group')).json(); $('groupNow').textContent = g.key || 'general'; } catch {}
+  renderGroupList();
+  $('groupModal').hidden = false;
 };
+$('newGroupBtn').onclick = () => { const k = $('newGroup').value.trim(); $('newGroup').value = ''; entrarGrupo(k); };
+$('groupClose').onclick = () => { $('groupModal').hidden = true; };
+$('groupModal').onclick = (e) => { if (e.target === $('groupModal')) $('groupModal').hidden = true; };
 
 // ---- vincular celular por QR
 let pairInfo = null;

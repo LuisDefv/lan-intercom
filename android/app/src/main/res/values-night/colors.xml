@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema oscuro (por defecto) -->
+    <color name="chat_bg">#141513</color>
+    <color name="chat_surface">#1C1D1A</color>
+    <color name="chat_divider">#2D2E2A</color>
+    <color name="bubble_in_bg">#24251F</color>
+    <color name="bubble_in_stroke">#2D2E2A</color>
+    <color name="bubble_out_bg">#1F3A2B</color>
+    <color name="bubble_out_stroke">#2B5540</color>
+</resources>

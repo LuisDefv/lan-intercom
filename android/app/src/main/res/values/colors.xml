@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema claro -->
+    <color name="chat_bg">#F4F3EF</color>
+    <color name="chat_surface">#FFFFFF</color>
+    <color name="chat_divider">#E2DFD6</color>
+    <color name="bubble_in_bg">#FFFFFF</color>
+    <color name="bubble_in_stroke">#E2DFD6</color>
+    <color name="bubble_out_bg">#DCEFE3</color>
+    <color name="bubble_out_stroke">#BFE3CF</color>
+</resources>

@@ -164,11 +164,12 @@ function setGroup(key) {
     saveJsonFile(GROUP_FILE, { key: KEY });
     peers.clear();
     emit('peers', listPeers());
-    emit('group', { grupo: GRUPO, conClave: Boolean(KEY) });
+    emit('group', { grupo: GRUPO, conClave: Boolean(KEY), nombre: KEY || 'general' });
+    emit('grupos', listGruposPool());
     try {
         announce();
     } catch {}
-    return { grupo: GRUPO, conClave: Boolean(KEY) };
+    return { grupo: GRUPO, conClave: Boolean(KEY), nombre: KEY || 'general' };
 }
 
 // ---------------------------------------------------------------- utilidades
@@ -310,6 +311,49 @@ setInterval(() => {
 const peers = new Map();
 const manualHosts = new Map();
 
+// Pool de grupos visible para todos: nombre de grupo -> Map(id -> lastSeen).
+// Se arma con TODOS los anuncios (sin filtrar por grupo), así se ve qué grupos
+// hay activos en la red, como un lobby.
+const gruposPool = new Map();
+
+function recordGroup(nombre, id) {
+    nombre = String(nombre || 'general');
+    if (!id) {
+        return;
+    }
+    let ids = gruposPool.get(nombre);
+    if (!ids) {
+        ids = new Map();
+        gruposPool.set(nombre, ids);
+    }
+    const had = ids.has(id);
+    ids.set(id, Date.now());
+    if (!had) {
+        emit('grupos', listGruposPool());
+    }
+}
+
+function listGruposPool() {
+    const now = Date.now();
+    const mine = KEY || 'general';
+    const names = new Set([mine, ...gruposPool.keys()]);
+    const out = [];
+    for (const nombre of names) {
+        const ids = gruposPool.get(nombre) || new Map();
+        let count = 0;
+        for (const [, t] of ids) {
+            if (now - t < PEER_TTL_MS) {
+                count++;
+            }
+        }
+        if (nombre === mine) {
+            count++; // esta PC
+        }
+        out.push({ nombre, count, actual: nombre === mine });
+    }
+    return out.sort((a, b) => a.nombre.localeCompare(b.nombre));
+}
+
 function upsertPeer({ id, name, host, port }) {
     if (!id || id === ID || !host || !port) {
         return;
@@ -343,6 +387,23 @@ setInterval(() => {
     }
     if (changed) {
         emit('peers', listPeers());
+    }
+    // Limpieza del pool de grupos.
+    let poolChanged = false;
+    for (const [nombre, ids] of gruposPool) {
+        for (const [id, t] of ids) {
+            if (now - t > PEER_TTL_MS) {
+                ids.delete(id);
+                poolChanged = true;
+            }
+        }
+        if (ids.size === 0 && nombre !== (KEY || 'general')) {
+            gruposPool.delete(nombre);
+            poolChanged = true;
+        }
+    }
+    if (poolChanged) {
+        emit('grupos', listGruposPool());
     }
 }, 2000).unref();
 
@@ -442,7 +503,12 @@ const udp = dgram.createSocket({ type: 'udp4', reuseAddr: true });
 udp.on('message', (buf, rinfo) => {
     try {
         const m = JSON.parse(buf.toString('utf8'));
-        if (m.app !== APP || m.id === ID || m.grupo !== GRUPO) {
+        if (m.app !== APP || m.id === ID) {
+            return;
+        }
+        // El pool se registra siempre (cualquier grupo); el peer solo si comparte grupo.
+        recordGroup(m.grupoNombre || 'general', m.id);
+        if (m.grupo !== GRUPO) {
             return;
         }
         upsertPeer({ id: m.id, name: m.name, host: rinfo.address, port: m.port });
@@ -452,7 +518,7 @@ udp.on('message', (buf, rinfo) => {
 udp.on('error', (err) => console.error('[udp]', err.message));
 
 function announce() {
-    const msg = Buffer.from(JSON.stringify({ app: APP, id: ID, name: NAME, port: PORT, grupo: GRUPO }));
+    const msg = Buffer.from(JSON.stringify({ app: APP, id: ID, name: NAME, port: PORT, grupo: GRUPO, grupoNombre: KEY || 'general' }));
     for (const addr of broadcastAddresses()) {
         udp.send(msg, DISCOVERY_PORT, addr, () => {});
     }
@@ -920,6 +986,7 @@ async function route(req, res) {
                     files: listFiles(),
                     pending: listPending(),
                     exec: execState,
+                    grupos: listGruposPool(),
                 });
             case '/api/peers':
                 return sendJson(res, 200, listPeers());

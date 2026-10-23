@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Antes de empezar"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:paddingBottom="12dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="1) Carpeta donde se guardan los archivos recibidos"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/pickFolder"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Elegir carpeta" />
+
+        <TextView
+            android:id="@+id/folderStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="✗ sin elegir"
+            android:textColor="?android:attr/textColorSecondary"
+            android:paddingBottom="18dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="2) Uníte a un grupo escaneando el QR de la PC"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/scan"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Escanear QR" />
+
+        <TextView
+            android:id="@+id/qrStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="✗ sin vincular"
+            android:textColor="?android:attr/textColorSecondary"
+            android:paddingBottom="20dp" />
+
+        <Button
+            android:id="@+id/start"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Empezar"
+            android:enabled="false" />
+    </LinearLayout>
+</ScrollView>
