@@ -11,8 +11,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Para abrir/instalar APKs recibidos (el usuario confirma en el sistema). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <!-- El escáner de Google (Code Scanner) maneja la cámara por su cuenta; no
-         necesita permiso de cámara declarado en esta app. -->
+    <!-- Cámara: la usa ZXing. El Code Scanner de Google la maneja por su cuenta. -->
+    <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
@@ -43,5 +43,13 @@
             android:name=".IntercomService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- ZXing en vertical. -->
+        <activity
+            android:name=".PortraitCaptureActivity"
+            android:screenOrientation="portrait"
+            android:stateNotNeeded="true"
+            android:exported="false"
+            android:theme="@style/zxing_CaptureTheme" />
     </application>
 </manifest>
