@@ -40,6 +40,7 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.documentfile:documentfile:1.0.1")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
-    // Scanner de QR para vincular (lector embebido, sin app externa).
-    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    // Escáner de QR de Google (ML Kit Code Scanner): vertical, maneja cámara y
+    // permisos solo, sin actividad propia. Mucho más estable que ZXing.
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
 }
