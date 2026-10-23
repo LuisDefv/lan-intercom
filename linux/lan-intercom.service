@@ -1,0 +1,19 @@
+[Unit]
+Description=Intercom LAN (mensajes y archivos entre PCs de la red local)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Ajustá WorkingDirectory y User a tu instalación:
+WorkingDirectory=%h/lan-intercom-linux
+ExecStart=/usr/bin/node %h/lan-intercom-linux/server.js
+Restart=on-failure
+RestartSec=3
+# Clave compartida del grupo (misma en todas las PCs). Opcional pero recomendado:
+# Environment=INTERCOM_KEY=una-clave-compartida
+# Permitir ejecución remota en esta PC (apagado si no se define):
+# Environment=INTERCOM_ALLOW_EXEC=1
+
+[Install]
+WantedBy=default.target

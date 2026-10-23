@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intercom LAN</title>
+<style>
+:root {
+  --bg: #f4f3ef; --panel: #ffffff; --line: #e2dfd6; --text: #1d1c19; --muted: #77736a;
+  --accent: #2f6f4f; --accent-text: #ffffff; --bubble-in: #ffffff; --bubble-out: #dcefe3;
+  --danger: #b3261e; --badge: #c2410c; --shadow: 0 1px 2px rgb(0 0 0 / .06);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141513; --panel: #1c1d1a; --line: #2d2e2a; --text: #ecebe6; --muted: #9a978e;
+    --accent: #5fb98a; --accent-text: #0d1a12; --bubble-in: #24251f; --bubble-out: #1f3a2b;
+    --danger: #f2827a; --badge: #fb923c; --shadow: none;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+
+/* --- añadidos: ejecución remota, pendientes --- */
+#execToggle.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+#execToggle.off { color: var(--muted); }
+.execbar { display: flex; align-items: center; gap: 8px; padding: 6px 12px 10px; }
+.execbar .execlabel { color: var(--muted); font-size: 13px; }
+.execbar input { flex: 1; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13px; }
+.execout { margin: 0 12px 12px; padding: 10px; max-height: 240px; overflow: auto; background: #0c0d0b; color: #d6f5e3; border-radius: 8px; font: 12px/1.45 ui-monospace, "Cascadia Code", Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+.pending { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pending li { background: var(--bg); border: 1px solid var(--badge); border-radius: 8px; padding: 8px 10px; }
+.pending .pname { font-weight: 600; word-break: break-word; }
+.pending .pmeta { color: var(--muted); font-size: 12px; margin: 2px 0 6px; }
+.pending .pacts { display: flex; gap: 6px; }
+.pending .pacts button { flex: 1; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+.pending .pacts .ok { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.pending .pacts .no { color: var(--danger); }
+.msg.exec .who { color: var(--badge); }
+.msg.exec .cmd { font-family: ui-monospace, Consolas, monospace; background: var(--bg); padding: 2px 6px; border-radius: 4px; }
+
+.app { display: grid; grid-template-columns: 240px 1fr 260px; grid-template-rows: auto 1fr; height: 100vh; }
+header { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+header h1 { font-size: 16px; margin: 0; letter-spacing: -.01em; }
+header .me { color: var(--muted); font-size: 13px; }
+header .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; margin-right: 6px; }
+header .spacer { flex: 1; }
+
+aside { background: var(--panel); border-right: 1px solid var(--line); overflow: auto; padding: 12px; }
+aside.right { border-right: 0; border-left: 1px solid var(--line); }
+h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 4px 4px 8px; font-weight: 600; }
+
+.peer { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; text-align: left; }
+.peer:hover { background: var(--bg); }
+.peer.active { background: var(--accent); color: var(--accent-text); }
+.peer .avatar { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 12px; background: var(--bg); color: var(--text); flex: none; }
+.peer.active .avatar { background: rgb(255 255 255 / .25); color: inherit; }
+.peer .meta { flex: 1; min-width: 0; }
+.peer .name { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.peer .ip { display: block; font-size: 11px; opacity: .7; }
+.badge { background: var(--badge); color: #fff; border-radius: 10px; font-size: 11px; padding: 0 6px; font-weight: 600; }
+.empty { color: var(--muted); font-size: 13px; padding: 6px 10px; }
+
+.manual { margin-top: 16px; display: flex; gap: 6px; }
+.manual input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+
+main { display: flex; flex-direction: column; min-width: 0; position: relative; }
+.chat-head { padding: 12px 16px; border-bottom: 1px solid var(--line); font-weight: 600; }
+.chat-head small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+.messages { flex: 1; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.msg { max-width: min(560px, 80%); padding: 8px 12px; border-radius: 12px; background: var(--bubble-in); border: 1px solid var(--line); box-shadow: var(--shadow); align-self: flex-start; white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg.out { align-self: flex-end; background: var(--bubble-out); border-color: transparent; }
+.msg .who { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+.msg .file { display: flex; align-items: center; gap: 8px; }
+.msg .file a { color: var(--accent); font-weight: 500; }
+.msg .file .size { color: var(--muted); font-size: 12px; }
+
+.composer { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--panel); align-items: flex-end; }
+.composer textarea { flex: 1; resize: none; min-height: 40px; max-height: 160px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); outline: none; }
+.composer textarea:focus { border-color: var(--accent); }
+.btn { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 8px 14px; height: 40px; }
+.btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+.btn.small { height: auto; padding: 5px 10px; border-radius: 6px; font-size: 13px; }
+.btn:disabled { opacity: .5; cursor: default; }
+
+.uploads { padding: 0 16px; display: flex; flex-direction: column; gap: 6px; }
+.upload { font-size: 12px; color: var(--muted); }
+.upload .bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin-top: 3px; }
+.upload .bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .15s; }
+
+.drop { position: absolute; inset: 8px; border: 2px dashed var(--accent); border-radius: 14px; background: color-mix(in srgb, var(--bg) 85%, transparent); display: none; place-items: center; font-size: 18px; font-weight: 600; color: var(--accent); pointer-events: none; }
+main.dragging .drop { display: grid; }
+
+.files { list-style: none; margin: 0; padding: 0; }
+.files li { padding: 8px 6px; border-bottom: 1px solid var(--line); }
+.files a { color: var(--text); text-decoration: none; font-weight: 500; overflow-wrap: anywhere; }
+.files a:hover { color: var(--accent); }
+.files small { display: block; color: var(--muted); font-size: 11px; }
+
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--danger); color: #fff; padding: 10px 16px; border-radius: 10px; display: none; max-width: 90vw; }
+
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr auto; height: auto; min-height: 100vh; }
+  aside { border: 0; border-bottom: 1px solid var(--line); }
+  aside.right { border-left: 0; border-top: 1px solid var(--line); }
+  main { min-height: 60vh; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Intercom LAN</h1>
+    <span class="me" id="me"></span>
+    <span class="spacer"></span>
+    <button class="btn small" id="execToggle" title="Permitir que otras PCs ejecuten comandos en ESTA PC">Ejecución remota: …</button>
+    <button class="btn small" id="openFolder">Abrir carpeta de recibidos</button>
+  </header>
+
+  <aside>
+    <h2>PCs en la red</h2>
+    <div id="peers"></div>
+    <form class="manual" id="manualForm" title="Si una PC no aparece sola, agregala por IP">
+      <input id="manualIp" placeholder="IP, ej. 192.168.0.15" autocomplete="off">
+      <button class="btn small" type="submit">+</button>
+    </form>
+  </aside>
+
+  <main id="main">
+    <div class="chat-head" id="chatHead"></div>
+    <div class="messages" id="messages"></div>
+    <div class="uploads" id="uploads"></div>
+    <form class="composer" id="composer">
+      <button class="btn" type="button" id="attach" title="Mandar archivos">📎</button>
+      <input type="file" id="fileInput" multiple hidden>
+      <textarea id="text" rows="1" placeholder="Escribí un mensaje… (Enter manda, Shift+Enter nueva línea)"></textarea>
+      <button class="btn primary" type="submit">Enviar</button>
+    </form>
+    <form class="execbar" id="execForm" title="Ejecutar un comando en la PC seleccionada (tiene que tener la ejecución remota activada)">
+      <span class="execlabel">⌘</span>
+      <input id="execCmd" placeholder="Comando a ejecutar en la PC seleccionada…" autocomplete="off">
+      <button class="btn" type="submit">Ejecutar</button>
+    </form>
+    <pre class="execout" id="execOut" hidden></pre>
+    <div class="drop">Soltá para mandar</div>
+  </main>
+
+  <aside class="right">
+    <h2>Pendientes de aprobar</h2>
+    <ul class="pending" id="pending"></ul>
+    <h2>Archivos recibidos</h2>
+    <ul class="files" id="files"></ul>
+  </aside>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let state = { me: null, peers: [], messages: [], files: [] };
+let selected = 'todos';
+const unread = {};
+let hiddenUnread = 0;
+
+const fmtSize = (n) => {
+  if (n < 1024) return n + ' B';
+  const u = ['KB', 'MB', 'GB']; let i = -1;
+  do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
+  return n.toFixed(1) + ' ' + u[i];
+};
+const fmtTime = (iso) => new Date(iso).toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
+const initials = (name) => name.split(/[\s\-_]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.style.display = 'block';
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => (t.style.display = 'none'), 5000);
+}
+
+function peerName(id) {
+  if (id === 'todos') return 'Todos';
+  return state.peers.find((p) => p.id === id)?.name || 'PC desconectada';
+}
+
+function renderMe() {
+  const m = state.me; if (!m) return;
+  $('me').innerHTML = '';
+  $('me').append(el('span', 'dot'), `${m.name} · ${m.ips.join(', ') || 'sin red'}:${m.port}`);
+}
+
+function renderPeers() {
+  const box = $('peers'); box.innerHTML = '';
+  const items = [{ id: 'todos', name: 'Todos', host: `${state.peers.length} conectada${state.peers.length === 1 ? '' : 's'}` }, ...state.peers];
+  for (const p of items) {
+    const b = el('button', 'peer' + (p.id === selected ? ' active' : ''));
+    b.append(el('span', 'avatar', p.id === 'todos' ? '★' : initials(p.name)));
+    const meta = el('span', 'meta');
+    meta.append(el('span', 'name', p.name), el('span', 'ip', p.port ? `${p.host}` : p.host));
+    b.append(meta);
+    if (unread[p.id]) b.append(el('span', 'badge', unread[p.id]));
+    b.onclick = () => { selected = p.id; unread[p.id] = 0; render(); $('text').focus(); };
+    box.append(b);
+  }
+  if (!state.peers.length) box.append(el('div', 'empty', 'Esperando otras PCs… (tienen que tener el Intercom abierto)'));
+}
+
+function renderMessages() {
+  $('chatHead').innerHTML = '';
+  $('chatHead').append(peerName(selected), el('small', null, selected === 'todos' ? 'mensajes a todas las PCs + todo el historial' : ''));
+  if (selected !== 'todos') {
+    const rn = el('button', 'btn small', '✎ alias');
+    rn.style.marginLeft = '8px';
+    rn.onclick = () => editAlias(selected);
+    $('chatHead').append(rn);
+  }
+  const box = $('messages');
+  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+  box.innerHTML = '';
+  const list = selected === 'todos' ? state.messages : state.messages.filter((m) => m.peerId === selected);
+  if (!list.length) box.append(el('div', 'empty', 'Sin mensajes todavía. También podés arrastrar archivos acá.'));
+  for (const m of list) {
+    const d = el('div', 'msg ' + m.direction + (m.kind === 'exec' ? ' exec' : ''));
+    const who = m.direction === 'in' ? `${m.peerName}${m.broadcast ? ' (a todos)' : ''}` : `vos → ${m.peerName}`;
+    d.append(el('div', 'who', `${who} · ${fmtTime(m.at)}`));
+    if (m.kind === 'file') {
+      const f = el('div', 'file');
+      if (m.direction === 'in') {
+        const a = el('a', null, '📄 ' + m.fileName); a.href = '/files/' + encodeURIComponent(m.fileName); f.append(a);
+      } else {
+        f.append(el('span', null, '📄 ' + m.fileName));
+      }
+      f.append(el('span', 'size', fmtSize(m.size)));
+      d.append(f);
+    } else if (m.kind === 'file-pendiente') {
+      d.append(el('span', null, `⏳ ${m.fileName} (${fmtSize(m.size)}) — esperando que lo aceptes`));
+    } else if (m.kind === 'file-rechazado') {
+      d.append(el('span', null, `🚫 ${m.fileName} — rechazado`));
+    } else if (m.kind === 'exec') {
+      const line = el('div');
+      line.append(el('span', null, '⌘ '), el('span', 'cmd', m.cmd || ''));
+      d.append(line);
+      const st = m.error ? `error: ${m.error}` : (m.ok ? 'ok' : `exit ${m.code}`);
+      d.append(el('div', 'size', st));
+    } else {
+      d.append(document.createTextNode(m.text));
+    }
+    box.append(d);
+  }
+  if (atBottom || renderMessages.first !== false) { box.scrollTop = box.scrollHeight; renderMessages.first = false; }
+}
+
+function renderPending() {
+  const ul = $('pending'); ul.innerHTML = '';
+  const list = state.pending || [];
+  if (!list.length) { ul.append(el('li', 'empty', 'Nada en espera.')); return; }
+  for (const p of list) {
+    const li = el('li');
+    li.append(el('div', 'pname', '📄 ' + p.fileName));
+    li.append(el('div', 'pmeta', `${fmtSize(p.size)} · de ${p.fromName}`));
+    const acts = el('div', 'pacts');
+    const ok = el('button', 'ok', 'Aceptar');
+    ok.onclick = async () => { try { await postJson('/api/pending/accept', { id: p.id }); } catch (e) { toast(e.message); } };
+    const no = el('button', 'no', 'Rechazar');
+    no.onclick = async () => { try { await postJson('/api/pending/reject', { id: p.id }); } catch (e) { toast(e.message); } };
+    acts.append(ok, no); li.append(acts); ul.append(li);
+  }
+}
+
+function renderExecToggle() {
+  const on = !!(state.exec && state.exec.enabled);
+  const b = $('execToggle');
+  b.textContent = 'Ejecución remota: ' + (on ? 'ON' : 'OFF');
+  b.className = 'btn small ' + (on ? 'on' : 'off');
+}
+
+async function editAlias(id) {
+  const peer = state.peers.find((p) => p.id === id);
+  const actual = peer ? (peer.alias || '') : '';
+  const alias = prompt('Alias para esta PC (vacío para sacarlo):', actual);
+  if (alias === null) return;
+  try { await postJson('/api/alias', { id, alias }); } catch (e) { toast(e.message); }
+}
+
+function renderFiles() {
+  const ul = $('files'); ul.innerHTML = '';
+  if (!state.files.length) { ul.append(el('li', 'empty', 'Nada todavía.')); return; }
+  for (const f of state.files) {
+    const li = el('li');
+    const a = el('a', null, f.name); a.href = '/files/' + encodeURIComponent(f.name);
+    li.append(a, el('small', null, `${fmtSize(f.size)} · ${new Date(f.at).toLocaleString('es-PY')}`));
+    ul.append(li);
+  }
+}
+
+function render() { renderMe(); renderPeers(); renderMessages(); renderFiles(); renderPending(); renderExecToggle(); }
+
+async function load() {
+  const r = await fetch('/api/state');
+  state = await r.json();
+  render();
+}
+
+// ---- eventos en vivo
+const es = new EventSource('/api/events');
+es.onopen = () => load().catch(() => {});
+es.addEventListener('peers', (e) => { state.peers = JSON.parse(e.data); renderPeers(); renderMessages(); });
+es.addEventListener('files', (e) => { state.files = JSON.parse(e.data); renderFiles(); });
+es.addEventListener('pending', (e) => { state.pending = JSON.parse(e.data); renderPending(); });
+es.addEventListener('exec-config', (e) => { state.exec = JSON.parse(e.data); renderExecToggle(); renderPeers(); });
+es.addEventListener('message', (e) => {
+  const m = JSON.parse(e.data);
+  state.messages.push(m);
+  if (m.direction === 'in') {
+    if (m.peerId !== selected && selected !== 'todos') unread[m.peerId] = (unread[m.peerId] || 0) + 1;
+    if (document.hidden) {
+      hiddenUnread++; document.title = `(${hiddenUnread}) Intercom LAN`;
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(m.peerName, { body: m.kind === 'file' ? 'Te mandó ' + m.fileName : m.text });
+      }
+    }
+  }
+  renderPeers(); renderMessages();
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { hiddenUnread = 0; document.title = 'Intercom LAN'; } });
+document.addEventListener('click', () => { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); }, { once: true });
+
+// ---- mandar texto
+async function postJson(url, body) {
+  const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'Error ' + r.status);
+  return data;
+}
+
+function reportFailures(results) {
+  const bad = (results || []).filter((x) => !x.ok);
+  if (bad.length) toast('No llegó a: ' + bad.map((x) => `${x.pc} (${x.error})`).join(', '));
+}
+
+$('composer').onsubmit = async (e) => {
+  e.preventDefault();
+  const text = $('text').value.trim();
+  if (!text) return;
+  try {
+    const r = await postJson('/api/message', { to: selected, text });
+    $('text').value = ''; autoGrow();
+    reportFailures(r.results);
+  } catch (err) { toast(err.message); }
+};
+$('text').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('composer').requestSubmit(); }
+});
+function autoGrow() { const t = $('text'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 160) + 'px'; }
+$('text').addEventListener('input', autoGrow);
+
+// ---- mandar archivos
+function sendFile(file) {
+  const to = selected;
+  const row = el('div', 'upload', `Mandando ${file.name} a ${peerName(to)}…`);
+  const bar = el('div', 'bar'); const fill = el('i'); bar.append(fill); row.append(bar);
+  $('uploads').append(row);
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', `/api/file?to=${encodeURIComponent(to)}&name=${encodeURIComponent(file.name)}`);
+  xhr.upload.onprogress = (e) => { if (e.lengthComputable) fill.style.width = (e.loaded / e.total) * 100 + '%'; };
+  xhr.onload = () => {
+    row.remove();
+    let data = {}; try { data = JSON.parse(xhr.responseText); } catch {}
+    if (xhr.status >= 400) toast(`${file.name}: ${data.error || 'error ' + xhr.status}`); else reportFailures(data.results);
+  };
+  xhr.onerror = () => { row.remove(); toast(`${file.name}: falló la conexión`); };
+  xhr.send(file);
+}
+$('attach').onclick = () => $('fileInput').click();
+$('fileInput').onchange = (e) => { [...e.target.files].forEach(sendFile); e.target.value = ''; };
+
+const main = $('main'); let dragDepth = 0;
+main.addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; main.classList.add('dragging'); });
+main.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; main.classList.remove('dragging'); } });
+main.addEventListener('dragover', (e) => e.preventDefault());
+main.addEventListener('drop', (e) => {
+  e.preventDefault(); dragDepth = 0; main.classList.remove('dragging');
+  [...e.dataTransfer.files].forEach(sendFile);
+});
+
+// ---- varios
+$('openFolder').onclick = () => fetch('/api/open-folder', { method: 'POST' });
+$('manualForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const [host, port] = $('manualIp').value.trim().split(':');
+  if (!host) return;
+  try { await postJson('/api/peers', { host, port: Number(port) || 7777 }); $('manualIp').value = ''; }
+  catch (err) { toast(err.message); }
+};
+
+// ---- permiso de ejecución remota (en ESTA PC)
+$('execToggle').onclick = async () => {
+  const on = !!(state.exec && state.exec.enabled);
+  if (!on && !confirm('¿Permitir que otras PCs de la red ejecuten comandos EN ESTA PC?\n\nSolo activalo si confiás en las PCs conectadas.')) return;
+  try { const r = await postJson('/api/exec-config', { enabled: !on }); state.exec = r; renderExecToggle(); renderPeers(); }
+  catch (err) { toast(err.message); }
+};
+
+// ---- consola de ejecución remota (hacia la PC seleccionada)
+$('execForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const cmd = $('execCmd').value.trim();
+  if (!cmd) return;
+  if (selected === 'todos') { toast('Elegí una PC puntual para ejecutar un comando.'); return; }
+  const out = $('execOut');
+  out.hidden = false; out.textContent = `⌘ ${cmd}\n(ejecutando…)`;
+  try {
+    const r = await postJson('/api/exec', { to: selected, cmd });
+    const estado = r.matado ? '[cortado por timeout]' : (r.cortado ? '[salida truncada]' : `exit ${r.code}`);
+    out.textContent = `⌘ ${cmd}   →   ${r.pc}  (${estado})\n` +
+      (r.stdout && r.stdout.trim() ? `\n${r.stdout.trimEnd()}` : '') +
+      (r.stderr && r.stderr.trim() ? `\n[stderr]\n${r.stderr.trimEnd()}` : '') +
+      ((!r.stdout || !r.stdout.trim()) && (!r.stderr || !r.stderr.trim()) ? '\n(sin salida)' : '');
+    $('execCmd').value = '';
+  } catch (err) {
+    out.textContent = `⌘ ${cmd}\n\n⚠ ${err.message}`;
+  }
+};
+</script>
+</body>
+</html>

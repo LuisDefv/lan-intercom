@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Intercom LAN"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:paddingBottom="4dp" />
+
+        <TextView
+            android:id="@+id/status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Detenido"
+            android:paddingBottom="16dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Nombre de este celular en la red"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="ej. celu-lucho"
+            android:inputType="text"
+            android:paddingBottom="12dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Clave del grupo (opcional, igual en todas las PCs)"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/key"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="vacío = grupo por defecto"
+            android:inputType="textPassword"
+            android:paddingBottom="16dp" />
+
+        <Button
+            android:id="@+id/pickFolder"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Elegir carpeta donde guardar" />
+
+        <TextView
+            android:id="@+id/folder"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Carpeta: (sin elegir)"
+            android:paddingTop="4dp"
+            android:paddingBottom="16dp" />
+
+        <Button
+            android:id="@+id/toggle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Iniciar" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Recibidos"
+            android:textStyle="bold"
+            android:paddingTop="20dp"
+            android:paddingBottom="4dp" />
+
+        <TextView
+            android:id="@+id/received"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="(nada todavía)"
+            android:textIsSelectable="true"
+            android:fontFamily="monospace" />
+
+    </LinearLayout>
+</ScrollView>

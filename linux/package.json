@@ -1,0 +1,17 @@
+{
+  "name": "lan-intercom",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Intercomunicador entre PCs de la misma red: mensajes y archivos, con interfaz web y servidor MCP. Sin dependencias.",
+  "bin": {
+    "intercom": "server.js",
+    "intercom-mcp": "mcp.js"
+  },
+  "scripts": {
+    "start": "node server.js --abrir",
+    "mcp": "node mcp.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

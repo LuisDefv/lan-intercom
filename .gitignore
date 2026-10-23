@@ -1,0 +1,22 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Datos locales del Intercom (id del equipo, historial, recibidos)
+id.txt
+Intercom/
+*.log
+
+# Android / Gradle
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/captures/
+*.apk
+*.aab
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
