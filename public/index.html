@@ -120,6 +120,7 @@ main.dragging .drop { display: grid; }
     <h1>Intercom LAN</h1>
     <span class="me" id="me"></span>
     <span class="spacer"></span>
+    <button class="btn small" id="groupBtn" title="Crear o entrar a un grupo (clave compartida)">👥 Grupo</button>
     <button class="btn small" id="pairBtn" title="Vincular el celular escaneando un QR">📱 Vincular celular</button>
     <button class="btn small" id="execToggle" title="Permitir que otras PCs ejecuten comandos en ESTA PC">Ejecución remota: …</button>
     <button class="btn small" id="openFolder">Abrir carpeta de recibidos</button>
@@ -329,6 +330,7 @@ es.addEventListener('peers', (e) => { state.peers = JSON.parse(e.data); renderPe
 es.addEventListener('files', (e) => { state.files = JSON.parse(e.data); renderFiles(); });
 es.addEventListener('pending', (e) => { state.pending = JSON.parse(e.data); renderPending(); });
 es.addEventListener('exec-config', (e) => { state.exec = JSON.parse(e.data); renderExecToggle(); renderPeers(); });
+es.addEventListener('group', () => { load().catch(() => {}); });
 es.addEventListener('message', (e) => {
   const m = JSON.parse(e.data);
   state.messages.push(m);
@@ -420,6 +422,25 @@ $('execToggle').onclick = async () => {
   if (!on && !confirm('¿Permitir que otras PCs de la red ejecuten comandos EN ESTA PC?\n\nSolo activalo si confiás en las PCs conectadas.')) return;
   try { const r = await postJson('/api/exec-config', { enabled: !on }); state.exec = r; renderExecToggle(); renderPeers(); }
   catch (err) { toast(err.message); }
+};
+
+// ---- grupos (crear / entrar por clave compartida)
+$('groupBtn').onclick = async () => {
+  let actual = { key: '', grupo: '' };
+  try { actual = await (await fetch('/api/group')).json(); } catch {}
+  const etiqueta = actual.key ? `«${actual.key}»` : 'general (sin clave)';
+  const k = prompt(
+    'GRUPOS: solo las máquinas con la MISMA clave se ven entre sí.\n' +
+    'Poné una clave para crear/entrar a un grupo privado, o dejalo vacío para el grupo general.\n\n' +
+    'Grupo actual: ' + etiqueta,
+    actual.key || ''
+  );
+  if (k === null) return;
+  try {
+    const r = await postJson('/api/group', { key: k });
+    toast(r.conClave ? `Ahora estás en el grupo «${k}»` : 'Ahora estás en el grupo general');
+    load().catch(() => {});
+  } catch (err) { toast(err.message); }
 };
 
 // ---- vincular celular por QR

@@ -1,100 +1,99 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true">
+    android:orientation="vertical"
+    android:background="#F4F3EF">
 
+    <!-- Barra superior -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp">
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#FFFFFF"
+        android:padding="10dp">
 
-        <TextView
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Intercom LAN"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:paddingBottom="4dp" />
+            android:layout_weight="1"
+            android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Detenido"
-            android:paddingBottom="16dp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Intercom LAN"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="#1D1C19" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Nombre de este celular en la red"
-            android:textStyle="bold" />
+            <TextView
+                android:id="@+id/status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Detenido"
+                android:textSize="12sp"
+                android:textColor="#77736A" />
+        </LinearLayout>
 
-        <EditText
-            android:id="@+id/name"
-            android:layout_width="match_parent"
+        <Spinner
+            android:id="@+id/peerSpinner"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:hint="ej. celu-lucho"
-            android:inputType="text"
-            android:paddingBottom="12dp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Clave del grupo (opcional, igual en todas las PCs)"
-            android:textStyle="bold" />
-
-        <EditText
-            android:id="@+id/key"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="vacío = grupo por defecto"
-            android:inputType="textPassword"
-            android:paddingBottom="16dp" />
+            android:layout_weight="1.2" />
 
         <Button
-            android:id="@+id/scan"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Vincular escaneando QR de la PC"
-            android:layout_marginBottom="12dp" />
-
-        <Button
-            android:id="@+id/pickFolder"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Elegir carpeta donde guardar" />
-
-        <TextView
-            android:id="@+id/folder"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Carpeta: (sin elegir)"
-            android:paddingTop="4dp"
-            android:paddingBottom="16dp" />
-
-        <Button
-            android:id="@+id/toggle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Iniciar" />
-
-        <TextView
+            android:id="@+id/settings"
+            style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Recibidos"
-            android:textStyle="bold"
-            android:paddingTop="20dp"
-            android:paddingBottom="4dp" />
-
-        <TextView
-            android:id="@+id/received"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="(nada todavía)"
-            android:textIsSelectable="true"
-            android:fontFamily="monospace" />
-
+            android:minWidth="0dp"
+            android:text="⚙" />
     </LinearLayout>
-</ScrollView>
+
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E2DFD6" />
+
+    <!-- Mensajes -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/messages"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingVertical="8dp" />
+
+    <!-- Input -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#FFFFFF"
+        android:padding="8dp">
+
+        <Button
+            android:id="@+id/attach"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="0dp"
+            android:text="📎" />
+
+        <EditText
+            android:id="@+id/input"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="Escribí un mensaje…"
+            android:maxLines="4"
+            android:inputType="textMultiLine|textCapSentences" />
+
+        <Button
+            android:id="@+id/send"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="0dp"
+            android:text="Enviar" />
+    </LinearLayout>
+</LinearLayout>

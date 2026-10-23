@@ -21,8 +21,11 @@ const APP = 'lan-intercom';
 const PORT = Number(process.env.INTERCOM_PORT || 7777);
 const DISCOVERY_PORT = Number(process.env.INTERCOM_DISCOVERY_PORT || 7778);
 const NAME = (process.env.INTERCOM_NAME || os.hostname()).slice(0, 60);
-const KEY = process.env.INTERCOM_KEY || '';
-const GRUPO = crypto.createHash('sha256').update(KEY).digest('hex').slice(0, 12);
+const computeGrupo = (k) => crypto.createHash('sha256').update(String(k || '')).digest('hex').slice(0, 12);
+// Clave/grupo: mutable en caliente (se puede cambiar desde la interfaz) y
+// persistido en disco, pisando al valor de entorno si existe un grupo guardado.
+let KEY = process.env.INTERCOM_KEY || '';
+let GRUPO = computeGrupo(KEY);
 const DIR = path.resolve(process.env.INTERCOM_DIR || path.join(os.homedir(), 'Intercom'));
 const FILES_DIR = path.join(DIR, 'recibidos');
 const TMP_DIR = path.join(DIR, '.tmp');
@@ -30,6 +33,7 @@ const PENDING_DIR = path.join(DIR, '.pendientes');
 const HISTORY_FILE = path.join(DIR, 'mensajes.json');
 const ALIAS_FILE = path.join(DIR, 'alias.json');
 const EXEC_FILE = path.join(DIR, 'exec.json');
+const GROUP_FILE = path.join(DIR, 'grupo.json');
 const PEER_TTL_MS = 12_000;
 const ANNOUNCE_MS = 3_000;
 const MAX_MESSAGES = 1000;
@@ -140,6 +144,31 @@ function setExecConfig({ enabled, peerId, allow }) {
     saveJsonFile(EXEC_FILE, execState);
     emit('exec-config', execState);
     return execState;
+}
+
+// ------------------------------------------------------- grupo (clave) mutable
+
+// Si hay un grupo guardado en disco, pisa al de entorno.
+(function loadGroup() {
+    const saved = loadJsonFile(GROUP_FILE, null);
+    if (saved && typeof saved.key === 'string') {
+        KEY = saved.key;
+        GRUPO = computeGrupo(KEY);
+    }
+})();
+
+/** Cambia el grupo (clave). Limpia peers del grupo anterior y re-anuncia. */
+function setGroup(key) {
+    KEY = String(key || '');
+    GRUPO = computeGrupo(KEY);
+    saveJsonFile(GROUP_FILE, { key: KEY });
+    peers.clear();
+    emit('peers', listPeers());
+    emit('group', { grupo: GRUPO, conClave: Boolean(KEY) });
+    try {
+        announce();
+    } catch {}
+    return { grupo: GRUPO, conClave: Boolean(KEY) };
 }
 
 // ---------------------------------------------------------------- utilidades
@@ -644,6 +673,7 @@ function info() {
         ips: localIPv4s().map((i) => i.address),
         filesDir: FILES_DIR,
         conClave: Boolean(KEY),
+        grupo: GRUPO,
         execEnabled: execState.enabled,
         fileLimit: { max: RATE_LIMIT_MAX, windowMs: RATE_LIMIT_WINDOW_MS },
     };
@@ -901,6 +931,9 @@ async function route(req, res) {
                 return sendJson(res, 200, listPending());
             case '/api/exec-config':
                 return sendJson(res, 200, execState);
+            case '/api/group':
+                // Solo localhost (gate isLocal); por eso puede incluir la clave.
+                return sendJson(res, 200, { key: KEY, grupo: GRUPO, conClave: Boolean(KEY) });
             case '/api/pair': {
                 // Datos para vincular el celular por QR. Solo accesible desde esta
                 // PC (gate isLocal), por eso puede incluir la clave del grupo.
@@ -982,6 +1015,10 @@ async function route(req, res) {
             case '/api/alias': {
                 const b = await readJson(req);
                 return sendJson(res, 200, { ok: true, alias: setAlias(b.id, b.alias) });
+            }
+            case '/api/group': {
+                const b = await readJson(req);
+                return sendJson(res, 200, setGroup(b.key));
             }
             case '/api/open-folder':
                 openTarget(FILES_DIR);
