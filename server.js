@@ -960,6 +960,16 @@ async function route(req, res) {
         return fs.createReadStream(path.join(PUBLIC_DIR, 'index.html')).pipe(res);
     }
 
+    // Estáticos simples de public/ (icono, etc.).
+    if (req.method === 'GET' && /^\/[\w.-]+\.(png|ico|svg|css|js|webp|jpg)$/.test(p)) {
+        const file = path.join(PUBLIC_DIR, p.slice(1));
+        if (file.startsWith(PUBLIC_DIR) && fs.existsSync(file)) {
+            const types = { png: 'image/png', ico: 'image/x-icon', svg: 'image/svg+xml', css: 'text/css', js: 'text/javascript', webp: 'image/webp', jpg: 'image/jpeg' };
+            res.writeHead(200, { 'content-type': types[path.extname(file).slice(1)] || 'application/octet-stream' });
+            return fs.createReadStream(file).pipe(res);
+        }
+    }
+
     if (req.method === 'GET' && p.startsWith('/files/')) {
         const name = safeName(decodeURIComponent(p.slice('/files/'.length)));
         const file = path.join(FILES_DIR, name);

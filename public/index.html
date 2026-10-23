@@ -4,17 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Intercom LAN</title>
+<link rel="icon" href="icon.png">
+<meta name="theme-color" content="#311b92">
 <style>
 :root {
-  --bg: #f4f3ef; --panel: #ffffff; --line: #e2dfd6; --text: #1d1c19; --muted: #77736a;
-  --accent: #2f6f4f; --accent-text: #ffffff; --bubble-in: #ffffff; --bubble-out: #dcefe3;
-  --danger: #b3261e; --badge: #c2410c; --shadow: 0 1px 2px rgb(0 0 0 / .06);
+  --bg: #f1f2f7; --panel: #ffffff; --line: #e4e5ee; --text: #1a1a2e; --muted: #6b6e86;
+  --accent: #4f46e5; --accent2: #38bdf8; --accent-text: #ffffff;
+  --bubble-in: #ffffff; --bubble-out: #e7e9fe;
+  --danger: #dc2626; --badge: #ea580c;
+  --shadow: 0 1px 2px rgb(30 27 75 / .06); --shadow-lg: 0 10px 30px rgb(30 27 75 / .12);
+  --brand1: #1e1b4b; --brand2: #311b92;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #141513; --panel: #1c1d1a; --line: #2d2e2a; --text: #ecebe6; --muted: #9a978e;
-    --accent: #5fb98a; --accent-text: #0d1a12; --bubble-in: #24251f; --bubble-out: #1f3a2b;
-    --danger: #f2827a; --badge: #fb923c; --shadow: none;
+    --bg: #0f1016; --panel: #171824; --line: #272a3b; --text: #e8e9f2; --muted: #9ea1bd;
+    --accent: #818cf8; --accent2: #38bdf8; --accent-text: #0b0d1a;
+    --bubble-in: #1e2030; --bubble-out: #26306a;
+    --danger: #f87171; --badge: #fb923c;
+    --shadow: none; --shadow-lg: 0 10px 30px rgb(0 0 0 / .45);
+    --brand1: #1e1b4b; --brand2: #311b92;
   }
 }
 * { box-sizing: border-box; }
@@ -46,11 +54,14 @@ button { cursor: pointer; }
 #qrbox img, #qrbox canvas { display: block; }
 
 .app { display: grid; grid-template-columns: 240px 1fr 260px; grid-template-rows: auto 1fr; height: 100vh; }
-header { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
-header h1 { font-size: 16px; margin: 0; letter-spacing: -.01em; }
-header .me { color: var(--muted); font-size: 13px; }
-header .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; margin-right: 6px; }
+header { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); box-shadow: 0 2px 0 0 color-mix(in srgb, var(--accent) 18%, transparent); position: relative; }
+header .logo { width: 38px; height: 38px; border-radius: 11px; flex: none; box-shadow: var(--shadow); }
+header .brand { display: flex; flex-direction: column; line-height: 1.1; }
+header h1 { font-size: 16px; margin: 0; letter-spacing: -.02em; font-weight: 700; }
+header .me { color: var(--muted); font-size: 12px; margin-top: 1px; }
+header .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; display: inline-block; margin-right: 6px; box-shadow: 0 0 0 3px color-mix(in srgb, #22c55e 25%, transparent); }
 header .spacer { flex: 1; }
+header .btn.small { border-radius: 999px; }
 
 aside { background: var(--panel); border-right: 1px solid var(--line); overflow: auto; padding: 12px; }
 aside.right { border-right: 0; border-left: 1px solid var(--line); }
@@ -59,7 +70,8 @@ h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: v
 .peer { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; text-align: left; }
 .peer:hover { background: var(--bg); }
 .peer.active { background: var(--accent); color: var(--accent-text); }
-.peer .avatar { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 12px; background: var(--bg); color: var(--text); flex: none; }
+.peer .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 12px; color: #fff; flex: none; background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+.peer.active { box-shadow: var(--shadow); }
 .peer.active .avatar { background: rgb(255 255 255 / .25); color: inherit; }
 .peer .meta { flex: 1; min-width: 0; }
 .peer .name { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -84,8 +96,11 @@ main { display: flex; flex-direction: column; min-width: 0; position: relative; 
 .composer { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--panel); align-items: flex-end; }
 .composer textarea { flex: 1; resize: none; min-height: 40px; max-height: 160px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); outline: none; }
 .composer textarea:focus { border-color: var(--accent); }
-.btn { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 8px 14px; height: 40px; }
-.btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+.btn { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 8px 14px; height: 40px; transition: transform .05s, background .15s, border-color .15s; }
+.btn:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, var(--accent2))); color: var(--accent-text); border-color: transparent; font-weight: 600; box-shadow: var(--shadow); }
+.btn.primary:hover { filter: brightness(1.05); }
 .btn.small { height: auto; padding: 5px 10px; border-radius: 6px; font-size: 13px; }
 .btn:disabled { opacity: .5; cursor: default; }
 
@@ -117,8 +132,11 @@ main.dragging .drop { display: grid; }
 <body>
 <div class="app">
   <header>
-    <h1>Intercom LAN</h1>
-    <span class="me" id="me"></span>
+    <img class="logo" src="icon.png" alt="Intercom LAN">
+    <div class="brand">
+      <h1>Intercom LAN</h1>
+      <span class="me" id="me"></span>
+    </div>
     <span class="spacer"></span>
     <button class="btn small" id="groupBtn" title="Crear o entrar a un grupo (clave compartida)">👥 Grupo</button>
     <button class="btn small" id="pairBtn" title="Vincular el celular escaneando un QR">📱 Vincular celular</button>
