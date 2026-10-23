@@ -747,6 +747,23 @@ async function sendExec(to, cmd, opts = {}) {
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
+// IP "principal": la de la interfaz con ruta por defecto (normalmente el WiFi).
+// Truco sin dependencias: un socket UDP "conectado" a una IP externa no envía
+// nada, pero revela qué interfaz local se usaría para salir.
+let PRIMARY_IP = null;
+(function detectPrimaryIp() {
+    try {
+        const s = dgram.createSocket('udp4');
+        s.once('error', () => {
+            try { s.close(); } catch {}
+        });
+        s.connect(80, '8.8.8.8', () => {
+            try { PRIMARY_IP = s.address().address; } catch {}
+            try { s.close(); } catch {}
+        });
+    } catch {}
+})();
+
 async function route(req, res) {
     const url = new URL(req.url, 'http://localhost');
     const p = url.pathname;
@@ -887,9 +904,9 @@ async function route(req, res) {
             case '/api/pair': {
                 // Datos para vincular el celular por QR. Solo accesible desde esta
                 // PC (gate isLocal), por eso puede incluir la clave del grupo.
-                // Ordena para que las IPs útiles (192.168/10/172) queden antes que
-                // las link-local (169.254) o de adaptadores virtuales.
-                const rank = (ip) => (ip.startsWith('192.168.') ? 0 : ip.startsWith('10.') || ip.startsWith('172.') ? 1 : ip.startsWith('169.254.') ? 3 : 2);
+                // La IP principal (salida por defecto) va primera; después las
+                // privadas útiles, y al final link-local / adaptadores virtuales.
+                const rank = (ip) => (ip === PRIMARY_IP ? -1 : ip.startsWith('192.168.') ? 0 : ip.startsWith('10.') || ip.startsWith('172.') ? 1 : ip.startsWith('169.254.') ? 3 : 2);
                 const ips = localIPv4s().map((i) => i.address).sort((a, b) => rank(a) - rank(b));
                 const host = url.searchParams.get('host') || ips[0] || 'localhost';
                 const payload = `intercom:pair?host=${encodeURIComponent(host)}&port=${PORT}&key=${encodeURIComponent(KEY)}&name=${encodeURIComponent(NAME)}`;
