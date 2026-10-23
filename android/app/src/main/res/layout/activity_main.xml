@@ -54,6 +54,13 @@
             android:paddingBottom="16dp" />
 
         <Button
+            android:id="@+id/scan"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Vincular escaneando QR de la PC"
+            android:layout_marginBottom="12dp" />
+
+        <Button
             android:id="@+id/pickFolder"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

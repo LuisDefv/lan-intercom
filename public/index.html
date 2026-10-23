@@ -40,6 +40,10 @@ button { cursor: pointer; }
 .pending .pacts .no { color: var(--danger); }
 .msg.exec .who { color: var(--badge); }
 .msg.exec .cmd { font-family: ui-monospace, Consolas, monospace; background: var(--bg); padding: 2px 6px; border-radius: 4px; }
+.modal { position: fixed; inset: 0; background: rgb(0 0 0 / .5); display: grid; place-items: center; z-index: 50; padding: 16px; }
+.modal[hidden] { display: none; }
+.modal-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; width: 100%; max-width: 360px; box-shadow: 0 10px 40px rgb(0 0 0 / .3); }
+#qrbox img, #qrbox canvas { display: block; }
 
 .app { display: grid; grid-template-columns: 240px 1fr 260px; grid-template-rows: auto 1fr; height: 100vh; }
 header { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
@@ -108,6 +112,7 @@ main.dragging .drop { display: grid; }
   main { min-height: 60vh; }
 }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 <div class="app">
@@ -115,6 +120,7 @@ main.dragging .drop { display: grid; }
     <h1>Intercom LAN</h1>
     <span class="me" id="me"></span>
     <span class="spacer"></span>
+    <button class="btn small" id="pairBtn" title="Vincular el celular escaneando un QR">📱 Vincular celular</button>
     <button class="btn small" id="execToggle" title="Permitir que otras PCs ejecuten comandos en ESTA PC">Ejecución remota: …</button>
     <button class="btn small" id="openFolder">Abrir carpeta de recibidos</button>
   </header>
@@ -154,6 +160,21 @@ main.dragging .drop { display: grid; }
     <ul class="files" id="files"></ul>
   </aside>
 </div>
+
+<div class="modal" id="pairModal" hidden>
+  <div class="modal-card">
+    <h2 style="margin-top:0">Vincular celular</h2>
+    <p style="color:var(--muted);margin:0 0 10px">Abrí la app <b>Intercom LAN</b> en el celu → <b>"Vincular escaneando QR"</b> y apuntá a este código. Quedan en el mismo grupo y te aparece acá solo.</p>
+    <label style="font-size:12px;color:var(--muted)">IP de esta PC (elegí la de tu red WiFi)</label>
+    <select id="pairIp" style="width:100%;margin:4px 0 12px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--panel)"></select>
+    <div id="qrbox" style="display:grid;place-items:center;min-height:200px;background:#fff;border-radius:10px;padding:14px"></div>
+    <p id="pairText" style="word-break:break-all;font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--muted);margin:10px 0 0"></p>
+    <div style="display:flex;justify-content:flex-end;margin-top:12px">
+      <button class="btn" id="pairClose">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -400,6 +421,39 @@ $('execToggle').onclick = async () => {
   try { const r = await postJson('/api/exec-config', { enabled: !on }); state.exec = r; renderExecToggle(); renderPeers(); }
   catch (err) { toast(err.message); }
 };
+
+// ---- vincular celular por QR
+let pairInfo = null;
+function buildPayload(host) {
+  const i = pairInfo || {};
+  return `intercom:pair?host=${encodeURIComponent(host)}&port=${i.port || 7777}&key=${encodeURIComponent(i.key || '')}&name=${encodeURIComponent(i.name || '')}`;
+}
+function renderPairQr() {
+  const host = $('pairIp').value;
+  const payload = buildPayload(host);
+  const box = $('qrbox'); box.innerHTML = '';
+  $('pairText').textContent = payload;
+  if (window.QRCode) {
+    try { new QRCode(box, { text: payload, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M }); }
+    catch { box.textContent = 'No se pudo dibujar el QR; usá el texto de abajo.'; }
+  } else {
+    box.innerHTML = '<div style="color:#111;text-align:center;padding:10px">No cargó la librería de QR (sin internet).<br>Poné en el celu, a mano, la clave de abajo.</div>';
+  }
+}
+$('pairBtn').onclick = async () => {
+  try {
+    pairInfo = await (await fetch('/api/pair')).json();
+    const sel = $('pairIp'); sel.innerHTML = '';
+    (pairInfo.ips && pairInfo.ips.length ? pairInfo.ips : [pairInfo.host]).forEach((ip) => {
+      const o = document.createElement('option'); o.value = ip; o.textContent = ip; sel.append(o);
+    });
+    renderPairQr();
+    $('pairModal').hidden = false;
+  } catch (err) { toast(err.message); }
+};
+$('pairIp').onchange = renderPairQr;
+$('pairClose').onclick = () => { $('pairModal').hidden = true; };
+$('pairModal').onclick = (e) => { if (e.target === $('pairModal')) $('pairModal').hidden = true; };
 
 // ---- consola de ejecución remota (hacia la PC seleccionada)
 $('execForm').onsubmit = async (e) => {

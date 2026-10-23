@@ -884,6 +884,17 @@ async function route(req, res) {
                 return sendJson(res, 200, listPending());
             case '/api/exec-config':
                 return sendJson(res, 200, execState);
+            case '/api/pair': {
+                // Datos para vincular el celular por QR. Solo accesible desde esta
+                // PC (gate isLocal), por eso puede incluir la clave del grupo.
+                // Ordena para que las IPs útiles (192.168/10/172) queden antes que
+                // las link-local (169.254) o de adaptadores virtuales.
+                const rank = (ip) => (ip.startsWith('192.168.') ? 0 : ip.startsWith('10.') || ip.startsWith('172.') ? 1 : ip.startsWith('169.254.') ? 3 : 2);
+                const ips = localIPv4s().map((i) => i.address).sort((a, b) => rank(a) - rank(b));
+                const host = url.searchParams.get('host') || ips[0] || 'localhost';
+                const payload = `intercom:pair?host=${encodeURIComponent(host)}&port=${PORT}&key=${encodeURIComponent(KEY)}&name=${encodeURIComponent(NAME)}`;
+                return sendJson(res, 200, { host, port: PORT, name: NAME, key: KEY, ips, payload });
+            }
             case '/api/events':
                 res.writeHead(200, {
                     'content-type': 'text/event-stream; charset=utf-8',
