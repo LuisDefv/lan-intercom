@@ -134,6 +134,8 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         IntercomService.uiListener = { runOnUiThread { refresh() } }
+        IntercomService.progressListener = { renderTransfers() }
+        renderTransfers()
         if (setupComplete()) autoStart()
         refresh()
     }
@@ -141,6 +143,7 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         IntercomService.uiListener = null
+        IntercomService.progressListener = null
     }
 
     // --------------------------------------------------------------- onboarding
@@ -429,6 +432,31 @@ class MainActivity : AppCompatActivity() {
         refreshSpinner()
         adapter.submit(synchronized(IntercomService.messages) { IntercomService.messages.toList() })
         if (adapter.itemCount > 0) b.messages.scrollToPosition(adapter.itemCount - 1)
+    }
+
+    /** Loader de transferencias: barra + % + velocidad de subida/bajada. */
+    private fun renderTransfers() {
+        val list = IntercomService.transfers.values.toList()
+        if (list.isEmpty()) {
+            b.transferBox.visibility = android.view.View.GONE
+            return
+        }
+        b.transferBox.visibility = android.view.View.VISIBLE
+        val t = list.first()
+        val fmt = IntercomService::formatSize
+        val flecha = if (t.up) "⬆" else "⬇"
+        val pct = if (t.percent >= 0) "${t.percent}%" else ""
+        val restante = if (t.speed > 0 && t.total > 0) {
+            val s = ((t.total - t.done) / t.speed).toLong()
+            " · faltan " + if (s >= 60) "${s / 60}m ${s % 60}s" else "${s}s"
+        } else ""
+        b.transferTitle.text = "$flecha ${t.name} · ${t.peer}" + if (list.size > 1) "  (+${list.size - 1})" else ""
+        b.transferDetail.text = "$pct  ${fmt(t.done.toDouble())} / ${fmt(t.total.toDouble())} · ${fmt(t.speed)}/s$restante"
+        b.transferBar.isIndeterminate = t.percent < 0
+        if (t.percent >= 0) b.transferBar.setProgressCompat(t.percent, true)
+        val up = list.filter { it.up }.sumOf { it.speed }
+        val down = list.filter { !it.up }.sumOf { it.speed }
+        b.transferSpeeds.text = "⬆ ${fmt(up)}/s   ⬇ ${fmt(down)}/s"
     }
 
     private fun refreshSpinner() {

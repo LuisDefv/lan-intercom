@@ -14,8 +14,10 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.provider.OpenableColumns
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.documentfile.provider.DocumentFile
 import org.json.JSONObject
 import java.io.BufferedOutputStream
@@ -127,6 +129,98 @@ class IntercomService : Service() {
         }
     }
 
+    // ----------------------------------------------------------- transferencias
+
+    private var transferSeq = 0L
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var wifiLock: WifiManager.WifiLock? = null
+
+    /** Registra una transferencia y mantiene CPU y WiFi despiertos mientras dure (pantalla apagada incluida). */
+    private fun transferStart(up: Boolean, name: String, peer: String, total: Long): Long {
+        val id: Long
+        synchronized(transfers) {
+            id = ++transferSeq
+            transfers[id] = Transfer(up, name, peer, total)
+            if (transfers.size == 1) acquireTransferLocks()
+        }
+        notifyProgress(true)
+        return id
+    }
+
+    private fun transferBytes(id: Long, n: Int) {
+        val t = transfers[id] ?: return
+        t.done += n
+        val now = System.currentTimeMillis()
+        val dt = now - t.lastT
+        if (dt >= 500) {
+            val inst = (t.done - t.lastB) * 1000.0 / dt
+            t.speed = if (t.speed == 0.0) inst else t.speed * 0.6 + inst * 0.4
+            t.lastT = now
+            t.lastB = t.done
+            notifyProgress()
+            updateTransferNotif()
+        }
+    }
+
+    private fun transferEnd(id: Long) {
+        synchronized(transfers) {
+            transfers.remove(id)
+            if (transfers.isEmpty()) releaseTransferLocks()
+        }
+        notifyProgress(true)
+        updateTransferNotif()
+    }
+
+    private fun acquireTransferLocks() {
+        try {
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "intercom:transfer").apply {
+                setReferenceCounted(false); acquire(6 * 60 * 60 * 1000L)
+            }
+        } catch (_: Exception) {}
+        try {
+            val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            @Suppress("DEPRECATION")
+            wifiLock = wifi.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "intercom:transfer").apply {
+                setReferenceCounted(false); acquire()
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun releaseTransferLocks() {
+        try { wakeLock?.takeIf { it.isHeld }?.release() } catch (_: Exception) {}
+        try { wifiLock?.takeIf { it.isHeld }?.release() } catch (_: Exception) {}
+        wakeLock = null; wifiLock = null
+    }
+
+    /** La notificación fija muestra el progreso; vuelve a "activo" cuando no hay transferencias. */
+    private fun updateTransferNotif() {
+        try {
+            val list = transfers.values.toList()
+            val b = NotificationCompat.Builder(this, "intercom")
+                .setContentIntent(openAppIntent())
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+            if (list.isEmpty()) {
+                b.setContentTitle("Intercom LAN activo").setContentText("Conectado a la red local")
+                    .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            } else {
+                val t = list.first()
+                val flecha = if (t.up) "⬆ Enviando" else "⬇ Recibiendo"
+                b.setSmallIcon(if (t.up) android.R.drawable.stat_sys_upload else android.R.drawable.stat_sys_download)
+                    .setContentTitle("$flecha ${t.name}" + if (list.size > 1) " (+${list.size - 1})" else "")
+                    .setContentText("${formatSize(t.done.toDouble())} de ${formatSize(t.total.toDouble())} · ${formatSize(t.speed)}/s")
+                    .setProgress(100, t.percent.coerceAtLeast(0), t.percent < 0)
+            }
+            NotificationManagerCompat.from(this).notify(1, b.build())
+        } catch (_: SecurityException) {}
+    }
+
+    private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(
+        this, 0, Intent(this, MainActivity::class.java),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+    )
+
     private fun acquireMulticast() {
         try {
             val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
@@ -206,7 +300,7 @@ class IntercomService : Service() {
                         val fromName = query["fromName"] ?: host
                         upsertPeer(fromId, fromName, host, query["fromPort"]?.toIntOrNull() ?: PORT)
                         val name = safeName(query["name"] ?: "archivo")
-                        val doc = saveIncoming(name, input, len)
+                        val doc = saveIncoming(name, input, len, fromName)
                             ?: return respondJson(out, 500, errJson("no hay carpeta elegida o no se pudo guardar"))
                         val saved = doc.name ?: name
                         addMessage(Msg("in", "file", fromId, fromName, fileName = saved, uri = doc.uri.toString()))
@@ -226,7 +320,7 @@ class IntercomService : Service() {
         return headers["x-intercom-key"] == prefs.key
     }
 
-    private fun saveIncoming(name: String, input: InputStream, len: Long): DocumentFile? {
+    private fun saveIncoming(name: String, input: InputStream, len: Long, fromName: String): DocumentFile? {
         val uriStr = prefs.folderUri ?: return null
         val tree = DocumentFile.fromTreeUri(this, Uri.parse(uriStr)) ?: return null
         if (!tree.canWrite()) return null
@@ -237,17 +331,28 @@ class IntercomService : Service() {
         }
         val doc = tree.createFile(mime, name) ?: return null
         val out: OutputStream = contentResolver.openOutputStream(doc.uri) ?: return null
-        BufferedOutputStream(out).use { bo ->
-            val buf = ByteArray(64 * 1024)
-            var remaining = len
-            while (len < 0 || remaining > 0) {
-                val toRead = if (len < 0 || remaining > buf.size) buf.size else remaining.toInt()
-                val r = input.read(buf, 0, toRead)
-                if (r < 0) break
-                bo.write(buf, 0, r)
-                if (len >= 0) remaining -= r
+        val tid = transferStart(false, name, fromName, len)
+        try {
+            BufferedOutputStream(out, 256 * 1024).use { bo ->
+                val buf = ByteArray(256 * 1024)
+                var remaining = len
+                while (len < 0 || remaining > 0) {
+                    val toRead = if (len < 0 || remaining > buf.size) buf.size else remaining.toInt()
+                    val r = input.read(buf, 0, toRead)
+                    if (r < 0) break
+                    bo.write(buf, 0, r)
+                    transferBytes(tid, r)
+                    if (len >= 0) remaining -= r
+                }
+                bo.flush()
             }
-            bo.flush()
+            // Llegó incompleto (se cortó la conexión): no dejar un archivo roto en la carpeta.
+            if (len >= 0 && transfers[tid]?.done != len) {
+                try { doc.delete() } catch (_: Exception) {}
+                return null
+            }
+        } finally {
+            transferEnd(tid)
         }
         return doc
     }
@@ -334,17 +439,23 @@ class IntercomService : Service() {
             c.setRequestProperty("Content-Type", "application/octet-stream")
             if (prefs.key.isNotEmpty()) c.setRequestProperty("x-intercom-key", prefs.key)
             if (size >= 0) c.setFixedLengthStreamingMode(size) else c.setChunkedStreamingMode(0)
-            contentResolver.openInputStream(uri)?.use { input ->
-                c.outputStream.use { o ->
-                    val buf = ByteArray(64 * 1024)
-                    while (true) {
-                        val r = input.read(buf)
-                        if (r < 0) break
-                        o.write(buf, 0, r)
+            val tid = transferStart(true, name, p.name, size)
+            try {
+                contentResolver.openInputStream(uri)?.use { input ->
+                    c.outputStream.use { o ->
+                        val buf = ByteArray(256 * 1024)
+                        while (true) {
+                            val r = input.read(buf)
+                            if (r < 0) break
+                            o.write(buf, 0, r)
+                            transferBytes(tid, r)
+                        }
                     }
-                }
-            } ?: return "no se pudo leer el archivo"
-            responseError(c)
+                } ?: return "no se pudo leer el archivo"
+                responseError(c)
+            } finally {
+                transferEnd(tid)
+            }
         } catch (e: Exception) {
             e.message ?: e.javaClass.simpleName
         }
@@ -599,6 +710,33 @@ class IntercomService : Service() {
         private val peersMap = ConcurrentHashMap<String, Peer>()
         @Volatile var peers: List<Peer> = emptyList()
         val messages: MutableList<Msg> = Collections.synchronizedList(mutableListOf())
+
+        /** Transferencia en curso (subida o bajada), para el loader y la velocidad. */
+        class Transfer(val up: Boolean, val name: String, val peer: String, val total: Long) {
+            @Volatile var done = 0L
+            @Volatile var speed = 0.0          // bytes/s, suavizado
+            internal var lastT = System.currentTimeMillis()
+            internal var lastB = 0L
+            val percent: Int get() = if (total > 0) ((done * 100) / total).toInt().coerceIn(0, 100) else -1
+        }
+        val transfers: MutableMap<Long, Transfer> = ConcurrentHashMap()
+
+        @Volatile var progressListener: (() -> Unit)? = null
+        @Volatile private var lastProgressPost = 0L
+        fun notifyProgress(force: Boolean = false) {
+            val now = System.currentTimeMillis()
+            if (!force && now - lastProgressPost < 250) return
+            lastProgressPost = now
+            val l = progressListener ?: return
+            Handler(Looper.getMainLooper()).post(l)
+        }
+
+        fun formatSize(b: Double): String = when {
+            b >= 1L shl 30 -> "%.2f GB".format(b / (1L shl 30))
+            b >= 1L shl 20 -> "%.1f MB".format(b / (1L shl 20))
+            b >= 1L shl 10 -> "%.0f KB".format(b / (1L shl 10))
+            else -> "%.0f B".format(b)
+        }
 
         @Volatile var uiListener: (() -> Unit)? = null
         fun notifyUi() {
