@@ -166,7 +166,13 @@ const tools = [
                 .map((m) => {
                     const when = new Date(m.at).toLocaleString('es-PY');
                     const who = m.direction === 'in' ? `${m.peerName} →` : `→ ${m.peerName}`;
-                    const body = m.kind === 'file' ? `[archivo] ${m.fileName} (${formatSize(m.size)})` : m.text;
+                    const file = `${m.fileName} (${formatSize(m.size)})`;
+                    const body =
+                        m.kind === 'file' ? `[archivo] ${file}`
+                        : m.kind === 'file-pendiente' ? `[archivo pendiente de aceptar] ${file}`
+                        : m.kind === 'file-rechazado' ? `[archivo rechazado] ${file}`
+                        : m.kind === 'exec' ? `[exec] ${m.cmd}`
+                        : m.text;
                     return `[${when}] ${who}: ${body}`;
                 })
                 .join('\n');
