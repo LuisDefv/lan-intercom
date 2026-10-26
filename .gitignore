@@ -4,7 +4,7 @@ npm-debug.log*
 
 # Datos locales del Intercom (id del equipo, historial, recibidos)
 id.txt
-Intercom/
+/Intercom/
 *.log
 
 # Android / Gradle

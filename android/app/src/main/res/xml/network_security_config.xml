@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- El intercom habla HTTP plano entre equipos de la LAN (IPs que cambian):
+     sin esto Android 9+ bloquea todo envío con "Cleartext HTTP traffic not permitted". -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

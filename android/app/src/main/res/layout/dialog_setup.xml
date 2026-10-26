@@ -40,7 +40,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="2) Escaneá el QR de la PC. Probá los 3 escáneres: usá el que te funcione."
+            android:text="2) Conectate: escaneá el QR de otra PC o celu, o creá tu propio grupo."
             android:textStyle="bold" />
 
         <Button
@@ -60,6 +60,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="📷 Escáner de Google (ML Kit)" />
+
+        <Button
+            android:id="@+id/createGroup"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="➕ Crear mi propio grupo (sin escanear)" />
 
         <TextView
             android:id="@+id/qrStatus"
