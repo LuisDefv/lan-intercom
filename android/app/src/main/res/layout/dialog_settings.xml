@@ -37,11 +37,37 @@
             android:inputType="text"
             android:paddingBottom="12dp" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Unirme a un grupo escaneando QR (usá el escáner que te funcione)"
+            android:textStyle="bold" />
+
         <Button
             android:id="@+id/scan"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Unirme a un grupo escaneando QR" />
+            android:text="📷 Escáner vertical (ZXing)" />
+
+        <Button
+            android:id="@+id/scanHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📷 Escáner horizontal (ZXing)" />
+
+        <Button
+            android:id="@+id/scanGoogle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📷 Escáner de Google (ML Kit)" />
+
+        <Button
+            android:id="@+id/myQr"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="📱 Mostrar mi QR (que me escaneen)" />
 
         <Button
             android:id="@+id/pickFolder"
