@@ -1116,6 +1116,11 @@ const server = http.createServer((req, res) => {
     });
 });
 
+// Sin límite de tamaño: Node corta por defecto cualquier request de más de 5 min
+// (requestTimeout), y un archivo grande desde un celu por WiFi tarda más que eso.
+server.requestTimeout = 0;
+server.timeout = 120_000; // solo inactividad: si la conexión queda muda 2 min (celu sin WiFi), se libera
+
 server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
         console.error(`El puerto ${PORT} ya está en uso (¿ya está abierto el Intercom?). Abrí http://localhost:${PORT}`);
